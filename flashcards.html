@@ -1155,7 +1155,7 @@ function buildWordList(filter = '') {
   const gOrder = getGroupOrder();
 
   wordList.innerHTML = seq
-    .map((ci) => {
+    .map((ci, displayPos) => {
       const c = CARDS[ci];
       const isSlain = slain.has(ci);
       const groupPos = gOrder.indexOf(ci);
@@ -1171,7 +1171,7 @@ function buildWordList(filter = '') {
       }
 
       const display = !f || c.word.toLowerCase().includes(f) ? '' : 'style="display:none"';
-      return `<div class="${cls}" data-card-idx="${ci}" data-order-idx="${groupPos}" ${display}>${cbHtml}${c.word}</div>`;
+      return `<div class="${cls}" data-card-idx="${ci}" data-order-idx="${groupPos}" data-display-pos="${displayPos}" ${display}>${cbHtml}${c.word}</div>`;
     })
     .join('');
 }
@@ -1492,7 +1492,8 @@ wordList.addEventListener('mousedown', e => {
   const item = e.target.closest('.word-item');
   if (!item) return;
   const ci = parseInt(item.dataset.cardIdx);
-  dragState = { startCi: ci, startY: e.clientY, dragging: false, lastCi: ci };
+  const dp = parseInt(item.dataset.displayPos);
+  dragState = { startCi: ci, startDisplayPos: dp, startY: e.clientY, dragging: false, lastDisplayPos: dp };
 });
 
 wordList.addEventListener('mousemove', e => {
@@ -1504,32 +1505,35 @@ wordList.addEventListener('mousemove', e => {
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const item = el ? el.closest('.word-item') : null;
   if (!item) return;
-  const ci = parseInt(item.dataset.cardIdx);
-  if (ci === dragState.lastCi) return;
+  const dp = parseInt(item.dataset.displayPos);
+  if (dp === dragState.lastDisplayPos) return;
 
-  // Compute range and direction
-  const from = Math.min(dragState.startCi, ci);
-  const to = Math.max(dragState.startCi, ci);
-  const movingDown = ci >= dragState.startCi;
+  // Compute range in display-position space (matches what the user sees)
+  const fromDp = Math.min(dragState.startDisplayPos, dp);
+  const toDp = Math.max(dragState.startDisplayPos, dp);
+  const movingDown = dp >= dragState.startDisplayPos;
 
   // Direct DOM manipulation — no full list rebuild on every move
   wordList.querySelectorAll('.word-item.drag-hover').forEach(el => el.classList.remove('drag-hover'));
 
-  for (let i = from; i <= to; i++) {
-    if (!slain.has(i)) continue;
-    const itemEl = wordList.querySelector(`.word-item[data-card-idx="${i}"]`);
-    if (!itemEl) continue;
+  const allItems = wordList.querySelectorAll('.word-item');
+  for (const itemEl of allItems) {
+    const itemDp = parseInt(itemEl.dataset.displayPos);
+    if (itemDp < fromDp || itemDp > toDp) continue;
+    if (itemEl.style.display === 'none') continue;
+    const ci = parseInt(itemEl.dataset.cardIdx);
+    if (!slain.has(ci)) continue;
     itemEl.classList.add('drag-hover');
     const cb = itemEl.querySelector('.slain-cb');
     if (movingDown) {
-      slainChecked.add(i);
+      slainChecked.add(ci);
       if (cb) { cb.classList.add('checked'); cb.textContent = '\u2713'; }
     } else {
-      slainChecked.delete(i);
+      slainChecked.delete(ci);
       if (cb) { cb.classList.remove('checked'); cb.textContent = ''; }
     }
   }
-  dragState.lastCi = ci;
+  dragState.lastDisplayPos = dp;
   updateBatchRestoreBar();
 });
 
