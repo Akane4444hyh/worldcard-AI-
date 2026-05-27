@@ -1,6 +1,4 @@
-# world-card
 
-單一 HTML 檔案的單字卡應用，由 Python 腳本生成。UI 使用繁體中文，字型採用 Maple Mono。
 
 ## Features
 
